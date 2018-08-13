@@ -1,0 +1,13 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/">
+    <file>foetus.png</file>
+    <file>legend.png</file>
+    <file>label0.png</file>
+    <file>label1.png</file>
+    <file>label2.png</file>
+    <file>label3.png</file>
+    <file>label4.png</file>
+    <file>label5.png</file>
+    <file>label6.png</file>
+</qresource>
+</RCC>

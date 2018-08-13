@@ -1,0 +1,7 @@
+*.*~
+*.log
+*.proj
+*.user
+.codelite
+*.workspace
+*.project

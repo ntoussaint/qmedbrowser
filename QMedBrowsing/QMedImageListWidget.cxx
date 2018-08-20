@@ -5,6 +5,15 @@
 #include <QtWidgets>
 #include <iostream>
 #include <QMenu>
+#include <QWheelEvent>
+#include <QApplication>
+#include <QScrollBar>
+#include <QTimer>
+#include <QDebug>
+#include <QDateTime>
+#include <QQueue>
+#include <qmath.h>
+
 
 
 
@@ -18,6 +27,7 @@ QMedImageListWidget::QMedImageListWidget(const QSize& size, QWidget *parent) :
   this->setFlow(QListWidget::LeftToRight);
   this->setMovement(QListView::Static);
   this->setTabKeyNavigation(true);
+  this->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
   this->ContextMenu = new QMenu();
   this->UpdateMenu();
   this->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -29,8 +39,21 @@ QMedImageListWidget::QMedImageListWidget(const QSize& size, QWidget *parent) :
     this->LabelValues << QObject::tr("Label%1").arg(idx);
     this->Tags << QIcon(QObject::tr(":/label%1.png").arg(idx)).pixmap(45,45);
   }
-}
 
+  /// smooth scrolling...
+  lastWheelEvent = 0;
+  smoothMoveTimer = new QTimer(this);
+  connect(smoothMoveTimer, SIGNAL(timeout()), this, SLOT(slotSmoothMove()));
+
+  m_fps = 60;
+  m_duration = 400;
+  m_acceleration = 2.5;
+
+  m_smallStepModifier = Qt::SHIFT;
+  m_smallStepRatio = 1.0 / 5.0;
+  m_bigStepModifier = Qt::ALT;
+  m_bigStepRatio = 5.0;
+}
 
 
 void QMedImageListWidget::ShowContextMenu(const QPoint& pos)
@@ -212,4 +235,86 @@ QList<QPixmap> QMedImageListWidget::LabelsToPixmaps(QStringList labelvalues)
     ret << label;
   }
   return ret;
+}
+
+
+/// smooth scrolling...
+
+void QMedImageListWidget::wheelEvent(QWheelEvent *e)
+{
+    // According to my experiment, a normal person is able to scroll his wheel
+    // at the speed about 36 times per second in average.  Here we use a
+    // conservative value 30: a user can achieve the maximum acceration when he
+    // scrools his wheel at 30 times / second.
+    static QQueue<qint64> scrollStamps;
+    qint64 now = QDateTime::currentDateTime().toMSecsSinceEpoch();
+    scrollStamps.enqueue(now);
+    while (now - scrollStamps.front() > 500)
+        scrollStamps.dequeue();
+    double accerationRatio = qMin(scrollStamps.size() / 15.0, 1.0);
+
+    if (!lastWheelEvent)
+        lastWheelEvent = new QWheelEvent(*e);
+    else
+        *lastWheelEvent = *e;
+
+    stepsTotal = m_fps * m_duration / 1000;
+    double multiplier = 1.0 / 4.0;
+    if (QApplication::keyboardModifiers() & m_smallStepModifier)
+        multiplier *= m_smallStepRatio;
+    if (QApplication::keyboardModifiers() & m_bigStepModifier)
+        multiplier *= m_bigStepRatio;
+    double delta = e->delta() * multiplier;
+    if (m_acceleration > 0)
+        delta += delta * m_acceleration * accerationRatio;
+
+    stepsLeftQueue.push_back(qMakePair(delta, stepsTotal));
+    smoothMoveTimer->start(1000 / m_fps);
+}
+
+void QMedImageListWidget::slotSmoothMove()
+{
+    double totalDelta = 0;
+
+    for (QList< QPair<double, int> >::Iterator it = stepsLeftQueue.begin();
+         it != stepsLeftQueue.end(); ++it)
+    {
+        totalDelta += subDelta(it->first, it->second);
+        --(it->second);
+    }
+    while (!stepsLeftQueue.empty() && stepsLeftQueue.begin()->second == 0)
+        stepsLeftQueue.pop_front();
+
+    Qt::Orientation orientation = lastWheelEvent->orientation();
+    // By default, when you press ALT, QT will scroll horizontally.  But if we
+    // have defined the use of ALT key, we ignore this setting since horizontal
+    // scroll is not so useful in okular
+    if ((m_bigStepModifier & Qt::ALT) || (m_smallStepModifier & Qt::ALT))
+        orientation = Qt::Vertical;
+
+    QWheelEvent e(
+                lastWheelEvent->pos(),
+                lastWheelEvent->globalPos(),
+                qRound(totalDelta),
+                lastWheelEvent->buttons(),
+                0,
+                orientation
+    );
+    if (e.orientation() == Qt::Horizontal)
+        QApplication::sendEvent(horizontalScrollBar(), &e);
+    else
+        QApplication::sendEvent(verticalScrollBar(), &e);
+
+    if (stepsLeftQueue.empty()) {
+        smoothMoveTimer->stop();
+    }
+}
+
+double QMedImageListWidget::subDelta(double delta, int stepsLeft)
+{
+    double m = stepsTotal / 2.0;
+    double x = abs(stepsTotal - stepsLeft - m);
+
+    // some mathmatical integral result.
+    return (cos(x * M_PI / m) + 1.0) / (2.0*m) * delta;
 }

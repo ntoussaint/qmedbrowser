@@ -236,6 +236,8 @@ QList<QPixmap> QMedImageListWidget::LabelsToPixmaps(QStringList labelvalues)
   QList<QPixmap> ret;
   foreach (QString v, labelvalues)
   {
+    if (v.isEmpty())
+      continue;
     int idx = this->LabelValues.indexOf(v);
     if (idx < 0)
       continue;

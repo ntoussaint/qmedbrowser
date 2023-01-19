@@ -21,7 +21,7 @@ void QMedBrowserSettingsDialog::SetupLayout(void)
   QLabel* filefilterslabel = new QLabel("File filters (comma separated):");
   filefilterslabel->setStyleSheet("font-weight: bold; color: black");
   QStringList defaultfilters;
-  defaultfilters << "*.mha" << "*.mhd" << "*.nii" << "*.nii.gz";
+  defaultfilters << "*.jpg" << "*.png";
   this->FileFiltersEdit = new QLineEdit();
   this->FileFiltersEdit->setPlaceholderText("Comma-separated filters");
   this->FileFiltersEdit->setText(settings.value("FileFilters", defaultfilters.join(",")).toString());
@@ -41,7 +41,7 @@ void QMedBrowserSettingsDialog::SetupLayout(void)
   mainLayout->addWidget(labelslabel);
 
   QStringList defaultlabels;
-  defaultlabels << "Background" << "Head" << "Thorax" << "Abdomen" << "Spine" << "Limbs" << "Placenta";
+  defaultlabels << "" << "" << "" << "" << "validated" << "" << "";
   QStringList labels = settings.value("LabelValues", defaultlabels.join(",")).toString().split(",");
   for (int i=0; i<defaultlabels.count(); i++)
   {
@@ -73,7 +73,7 @@ void QMedBrowserSettingsDialog::SetupLayout(void)
   mainLayout->addWidget(legendfilelabel);
 
   this->LegendFileLabel = new QLabel();
-  this->LegendFileLabel->setText(settings.value("LegendFile", ":foetus.png").toString());
+  this->LegendFileLabel->setText(settings.value("LegendFile", ":validate.png").toString());
   QPushButton *filebutton = new QPushButton();
   filebutton->setToolTip(tr("Change legend image file"));
   filebutton->setIcon(QApplication::style()->standardIcon(QStyle::SP_DialogOpenButton));
@@ -87,22 +87,16 @@ void QMedBrowserSettingsDialog::SetupLayout(void)
       this->LegendFileLabel->setText(filename);
   });
   QPushButton *resetbutton1 = new QPushButton();
-  resetbutton1->setToolTip(tr("Reset to Foetus pictogram"));
+  resetbutton1->setToolTip(tr("Reset to validate pictogram"));
   resetbutton1->setIcon(QApplication::style()->standardIcon(QStyle::SP_DialogResetButton));
   QObject::connect(resetbutton1, &QAbstractButton::released, [this]()
-  { this->LegendFileLabel->setText(":foetus.png"); });
-  QPushButton *resetbutton2 = new QPushButton();
-  resetbutton2->setToolTip(tr("Reset to Foetus legend"));
-  resetbutton2->setIcon(QApplication::style()->standardIcon(QStyle::SP_DialogResetButton));
-  QObject::connect(resetbutton2, &QAbstractButton::released, [this]()
-  { this->LegendFileLabel->setText(":legend.png"); });
+  { this->LegendFileLabel->setText(":validate.png"); });
 
   QHBoxLayout* legendlayout = new QHBoxLayout();
   legendlayout->addWidget(this->LegendFileLabel);
   legendlayout->addStretch();
   legendlayout->addWidget(filebutton);
   legendlayout->addWidget(resetbutton1);
-  legendlayout->addWidget(resetbutton2);
   
   mainLayout->addLayout(legendlayout);
 

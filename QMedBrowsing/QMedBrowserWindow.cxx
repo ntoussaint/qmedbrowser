@@ -133,21 +133,17 @@ void QMedBrowserWindow::closeEvent(QCloseEvent *event)
 void QMedBrowserWindow::OpenFolderPressed(void)
 {
   QSettings settings;
-  qDebug() << settings.fileName();
-  qDebug() << "contains DefaultFolder: " << settings.contains("DefaultFolder");
   QString defaultpath = settings.value("DefaultFolder", QDir::currentPath()).toString();
-  qDebug() << "DefaultFolder in settings:" << settings.value("DefaultFolder", QDir::currentPath()).toString();
   QString folder = QFileDialog::getExistingDirectory ( this, "Please select the folder containing images to review", defaultpath );
   if (!QFileInfo(folder).exists())
     return;
 
   settings.setValue("DefaultFolder", folder);
-  qDebug() << "in settings after set:" << settings.value("DefaultFolder", QDir::currentPath()).toString();
 
   settings.setValue("DefaultFile", tr("%1%2%3").arg(folder).arg(QDir::separator()).arg("labels.csv"));
 
   QStringList defaultfilters;
-  defaultfilters << "*.jpg" << "*.png" << "*.mha" << "*.mhd" << "*.nii" << ".nii.gz";
+  defaultfilters << "*.jpg" << "*.png";
   QStringList filters = settings.value("FileFilters", defaultfilters.join(",")).toString().split(",");
   QStringList files_new = listFiles(folder, filters);
 
@@ -258,7 +254,7 @@ void QMedBrowserWindow::LoadFilePressed(void)
 
   for (int idx=0; idx<this->ListWidget->count(); idx++)
   {
-    QMedImageItem* meditem = reinterpret_cast<QMedImageItem*> (this->ListWidget->item(idx));
+    QMedImageItem* meditem = dynamic_cast<QMedImageItem*> (this->ListWidget->item(idx));
     if (!meditem)
       continue;
     QString basename = QFileInfo(meditem->path()).fileName();
@@ -325,7 +321,7 @@ void QMedBrowserWindow::OpenHelpPressed(void)
   this->LegendDialog = new QDialog(this);
   QLabel* label = new QLabel();
   QSettings settings;
-  QIcon icon = QIcon(settings.value("LegendFile", ":foetus").toString());
+  QIcon icon = QIcon(settings.value("LegendFile", ":validate").toString());
   label->setPixmap(icon.pixmap(icon.availableSizes().at(0)));
   QLayout* layout = new QVBoxLayout();
   layout->setSpacing(5);
@@ -350,7 +346,7 @@ void QMedBrowserWindow::OpenPreferencesPressed(void)
 void QMedBrowserWindow::ApplySettings(void)
 {
   QStringList defaultlabels;
-  defaultlabels << "Background" << "Head" << "Thorax" << "Abdomen" << "Spine" << "Limbs" << "Placenta";
+  defaultlabels << "" << "" << "" << "" << "validated" << "" << "";
   QSettings settings;
   QStringList labels = settings.value("LabelValues", defaultlabels.join(",")).toString().split(",");
   this->ListWidget->setLabelValues(labels);

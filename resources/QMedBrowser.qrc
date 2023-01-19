@@ -1,5 +1,6 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource prefix="/">
+    <file>validate.png</file>
     <file>foetus.png</file>
     <file>legend.png</file>
     <file>label0.png</file>

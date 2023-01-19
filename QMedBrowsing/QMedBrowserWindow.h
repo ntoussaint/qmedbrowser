@@ -65,7 +65,6 @@ protected:
 
 private:
 
-  QSettings* Settings;
   QProgressBar* ProgressBar;
   QComboBox* LabelComboBox;
   QComboBox* ThumbnailSizeComboBox;

@@ -3,11 +3,13 @@
 #include <QFileInfo>
 #include <QtWidgets>
 
+#ifdef use_itk
 #include <itkImage.h>
 #include <itkImageFileReader.h>
 #include <itkImageFileWriter.h>
 #include <itkMetaDataDictionary.h>
 #include <itkMetaDataObject.h>
+#endif
 
 QMedImageItem::QMedImageItem(const QString &path, const QString &text, QListWidget * parent, const QSize& size, int type) :
   QListWidgetItem(parent, type)
@@ -28,45 +30,76 @@ QMedImageItem::~QMedImageItem()
   ///@todo figure out why we have a leak here...
 }
 
+QImage QMedImageItem::readImage(const QString& path)
+{
+  QImageReader reader(path);
+  reader.setAutoTransform(true);
+  if (reader.canRead())
+  {
+      QImage ret;
+      reader.read(&ret);
+      
+      return ret;
+  }
+  else
+  {
+#ifdef use_itk
+    typedef itk::Image<unsigned int, 3> ImageType;
+    itk::ImageFileReader<ImageType>::Pointer r = itk::ImageFileReader<ImageType>::New();
+    r->SetFileName(path.toStdString().c_str());
+
+    try
+    {
+      r->Update();
+    }
+    catch (itk::ExceptionObject& e)
+    {
+      qWarning() << QObject::tr("Cannot read file: %1").arg(path);
+      return QImage();
+    }
+
+    ImageType::Pointer image = r->GetOutput();
+    int width = image->GetLargestPossibleRegion().GetSize()[0];
+    int height = image->GetLargestPossibleRegion().GetSize()[1];
+    int depth = image->GetLargestPossibleRegion().GetSize()[2];
+    int midslice = (int)((float)(depth) / 2.0);
+
+    QImage qimage(width, height, QImage::Format_RGB32);
+    QRgb* rgbPtr = reinterpret_cast<QRgb*>(qimage.bits()) + width * (height - 1);
+    unsigned int* data_ptr = reinterpret_cast<unsigned int*>(image->GetBufferPointer());
+    data_ptr += (width * height * midslice);
+
+    for (int row = 0; row < height; row++)
+    {
+      for (int col = 0; col < width; col++)
+      {
+        *(rgbPtr++) = QColor(data_ptr[0], data_ptr[0], data_ptr[0]).rgb();
+          data_ptr += image->GetNumberOfComponentsPerPixel();
+      }
+      rgbPtr -= width * 2;
+    }
+
+    itk::MetaDataDictionary dict = r->GetMetaDataDictionary();
+    if (dict.HasKey(this->LabelKey.toStdString()))
+    {
+      std::string v;
+      itk::ExposeMetaData<std::string>(dict, this->LabelKey.toStdString(), v);
+      this->LabelValues = QString::fromStdString(v).split(",");
+    }
+
+    return qimage.mirrored();
+#else
+    return QImage();
+#endif
+  }
+}
+
 void QMedImageItem::loadImage(const QString& path)
 {
-  typedef itk::Image<unsigned int, 3> ImageType;
-  itk::ImageFileReader<ImageType>::Pointer r = itk::ImageFileReader<ImageType>::New();
-  r->SetFileName(path.toStdString().c_str());
+  this->Image = readImage(path);
 
-  try
-  {
-    r->Update();
-  }
-  catch (itk::ExceptionObject &e)
-  {
-    qWarning() << QObject::tr("Cannot read file: %1").arg(path);
-    return;
-  }
-
-  ImageType::Pointer image = r->GetOutput();
-  int width  = image->GetLargestPossibleRegion().GetSize()[0];
-  int height = image->GetLargestPossibleRegion().GetSize()[1];
-  int depth  = image->GetLargestPossibleRegion().GetSize()[2];
-  unsigned int midslice = (unsigned int)((float)(depth) / 2.0);
-
-  QImage qimage( width, height, QImage::Format_RGB32 );
-  QRgb *rgbPtr = reinterpret_cast<QRgb *>( qimage.bits() ) + width * ( height - 1 );
-  unsigned int *data_ptr = reinterpret_cast<unsigned int *>( image->GetBufferPointer() );
-  data_ptr += (width*height*midslice);
-
-  for ( int row = 0; row < height; row++ )
-  {
-    for ( int col = 0; col < width; col++ )
-    {
-      *( rgbPtr++ ) = QColor( data_ptr[0], data_ptr[0], data_ptr[0] ).rgb();
-      data_ptr += image->GetNumberOfComponentsPerPixel();
-    }
-    rgbPtr -= width * 2;
-  }
-
-  float aspectratio = (float)(height) / (float)(width);
-  unsigned int px=0, py=0, sx=width, sy=height;
+  float aspectratio = (float)(this->Image.height()) / (float)(this->Image.width());
+  unsigned int px=0, py=0, sx= this->Image.width(), sy= this->Image.height();
   if (aspectratio > 1)
   {
     py = (unsigned int)((float)(sy-sx)/2.0);
@@ -78,7 +111,7 @@ void QMedImageItem::loadImage(const QString& path)
     sx = sy;
   }
   QRect rect(px, py, sx, sy);
-  QImage selection = qimage.copy(rect).scaled(this->Size, Qt::IgnoreAspectRatio).mirrored(false, true);
+  QImage selection = this->Image.copy(rect).scaled(this->Size, Qt::IgnoreAspectRatio);
   QPixmap pixmap = QPixmap::fromImage(selection);
 
   // getting size if the original picture is not square
@@ -100,13 +133,6 @@ void QMedImageItem::loadImage(const QString& path)
   const QIcon icon(this->Pixmap);
   this->setIcon(icon);
 
-  itk::MetaDataDictionary dict = r->GetMetaDataDictionary();
-  if (dict.HasKey(this->LabelKey.toStdString()))
-  {
-    std::string v;
-    itk::ExposeMetaData<std::string>(dict, this->LabelKey.toStdString(), v);
-    this->LabelValues = QString::fromStdString(v).split(",");
-  }
 }
 
 
@@ -119,7 +145,7 @@ void QMedImageItem::addOverlays(QList<QPixmap> overlays)
   painter.setCompositionMode (QPainter:: CompositionMode_SourceOver);
   painter.drawPixmap(0, 0, this->Pixmap);
 
-  for (unsigned int i=0; i<overlays.count(); i++)
+  for (int i=0; i<overlays.count(); i++)
   {
     painter.drawPixmap(this->Pixmap.width()-50, 10+i*50, overlays.at(i));
   }
@@ -132,6 +158,7 @@ void QMedImageItem::addOverlays(QList<QPixmap> overlays)
 
 void QMedImageItem::write(void)
 {
+#ifdef use_itk
   typedef itk::Image<unsigned int, 3> ImageType;
   itk::ImageFileReader<ImageType>::Pointer r = itk::ImageFileReader<ImageType>::New();
   r->SetFileName(this->Path.toStdString());
@@ -169,5 +196,5 @@ void QMedImageItem::write(void)
     qWarning() << QObject::tr("Cannot write file: %1").arg(this->Path);
     return;
   }
-
+#endif
 }

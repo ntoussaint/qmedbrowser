@@ -7,6 +7,8 @@
 #include <QListWidget>
 
 class QMenu;
+class QDialog;
+class QLabel;
 
 /**
  * @class QMedImageListWidget
@@ -40,6 +42,8 @@ public slots:
   void DeleteSelected();
   void ShowMetaData();
 
+  void HandleItemChanged(QListWidgetItem* current, QListWidgetItem* previous);
+
 signals:
 
   void Modified(const QString &path);
@@ -49,6 +53,10 @@ protected:
   void UpdateMenu(void);
   virtual void keyPressEvent(QKeyEvent * event);
   void ToggleLabelValue(unsigned int idx);
+  /**
+   * Double click event
+   */
+  void mouseDoubleClickEvent(QMouseEvent* event) override;
 
 private:
 
@@ -81,6 +89,9 @@ private:
 
   int stepsTotal;
   QList< QPair<double, int> > stepsLeftQueue;
+
+  QDialog* FullResolutionDialog;
+  QLabel* FullResolutionLabel;
 };
 
 #endif // QMedImageListWidget_h_

@@ -4,6 +4,7 @@
 #include <QtWidgets>
 
 #include <iostream>
+
 QStringList listFiles(const QString& directory, QStringList filters)
 {
   QStringList ret;
@@ -13,16 +14,16 @@ QStringList listFiles(const QString& directory, QStringList filters)
     QString fname = it.next();
     ret.append(fname);
   }
-  qSort(ret.begin(),ret.end());
+  std::sort(ret.begin(),ret.end());
   return ret;
 }
 
 
 QMedBrowserWindow::QMedBrowserWindow(QWidget *parent) : QMainWindow(parent)
 {
-  this->Settings = new QSettings();
-  this->restoreGeometry(this->Settings->value("MainWindow/geometry", this->saveGeometry()).toByteArray());
-  this->restoreState(this->Settings->value("MainWindow/windowState", this->saveState()).toByteArray());
+    QSettings settings;
+    this->restoreGeometry(settings.value("MainWindow/geometry", this->saveGeometry()).toByteArray());
+    this->restoreState(settings.value("MainWindow/windowState", this->saveState()).toByteArray());
 
   this->LegendDialog = nullptr;
   this->SettingsDialog = nullptr;
@@ -122,29 +123,36 @@ void QMedBrowserWindow::closeEvent(QCloseEvent *event)
   }
   else
   {
-    this->Settings->setValue("MainWindow/geometry", this->saveGeometry());
-    this->Settings->setValue("MainWindow/windowState", this->saveState());
+    QSettings settings;
+    settings.setValue("MainWindow/geometry", this->saveGeometry());
+    settings.setValue("MainWindow/windowState", this->saveState());
     event->accept();
   }
 }
 
 void QMedBrowserWindow::OpenFolderPressed(void)
 {
-  QString defaultpath = this->Settings->value("DefaultFolder", QDir::currentPath()).toString();
+  QSettings settings;
+  qDebug() << settings.fileName();
+  qDebug() << "contains DefaultFolder: " << settings.contains("DefaultFolder");
+  QString defaultpath = settings.value("DefaultFolder", QDir::currentPath()).toString();
+  qDebug() << "DefaultFolder in settings:" << settings.value("DefaultFolder", QDir::currentPath()).toString();
   QString folder = QFileDialog::getExistingDirectory ( this, "Please select the folder containing images to review", defaultpath );
   if (!QFileInfo(folder).exists())
     return;
 
-  this->Settings->setValue("DefaultFolder", folder);
-  this->Settings->setValue("DefaultFile", tr("%1%2%3").arg(folder).arg(QDir::separator()).arg("labels.csv"));
+  settings.setValue("DefaultFolder", folder);
+  qDebug() << "in settings after set:" << settings.value("DefaultFolder", QDir::currentPath()).toString();
+
+  settings.setValue("DefaultFile", tr("%1%2%3").arg(folder).arg(QDir::separator()).arg("labels.csv"));
 
   QStringList defaultfilters;
-  defaultfilters << "*.mha" << "*.mhd" << "*.nii" << ".nii.gz";
-  QStringList filters = this->Settings->value("FileFilters", defaultfilters.join(",")).toString().split(",");
+  defaultfilters << "*.jpg" << "*.png" << "*.mha" << "*.mhd" << "*.nii" << ".nii.gz";
+  QStringList filters = settings.value("FileFilters", defaultfilters.join(",")).toString().split(",");
   QStringList files_new = listFiles(folder, filters);
 
   QList<QMedImageItem*> items_old;
-  for (unsigned long idx=0; idx<this->ListWidget->count(); idx++)
+  for (int idx=0; idx<this->ListWidget->count(); idx++)
   {
     QMedImageItem* meditem = reinterpret_cast<QMedImageItem*> (this->ListWidget->item(idx));
     if (meditem)
@@ -168,22 +176,23 @@ void QMedBrowserWindow::OpenFolderPressed(void)
 
   QSize thumbnailsize(300,300);
   
-  for (unsigned long idx = 0; idx < files_new.count(); idx++)
+  for (int idx = 0; idx < files_new.count(); idx++)
   {
     QString f = files_new.at(idx);
     QMedImageItem* meditem = new QMedImageItem(f, tr("%1").arg(this->ListWidget->count()), this->ListWidget, thumbnailsize);
     QStringList values = meditem->labelValues();
     meditem->addOverlays(this->ListWidget->LabelsToPixmaps(values));
     this->ListWidget->addItem(meditem);
-    /// @todo update a progress bar
     this->ProgressBar->setValue(idx);
   }
 
   this->ProgressBar->setVisible(false);
   this->HelpLabel->setVisible(true);
   this->statusBar()->showMessage(tr("Total: %1 images").arg(files_new.count()));
+  this->SetThumbnailSize(3);
 
   this->LabelComboBox->setCurrentIndex(0);
+  this->ThumbnailSizeComboBox->setCurrentIndex(0);
 }
 
 void QMedBrowserWindow::SaveFolderPressed(void)
@@ -197,7 +206,7 @@ void QMedBrowserWindow::SaveFolderPressed(void)
   this->HelpLabel->setVisible(false);
   this->ProgressBar->setVisible(true);
 
-  for (unsigned long idx=0; idx<this->ListWidget->count(); idx++)
+  for (int idx=0; idx<this->ListWidget->count(); idx++)
   {
     QMedImageItem* meditem = reinterpret_cast<QMedImageItem*> (this->ListWidget->item(idx));
     if (!meditem)
@@ -216,15 +225,15 @@ void QMedBrowserWindow::LoadFilePressed(void)
 {
   if (!this->ListWidget->count())
     return;
-
-  QString defaultpath = this->Settings->value("DefaultFile", tr("%1%2%3").arg(QDir::currentPath()).arg(QDir::separator()).arg("labels.csv")).toString();
+  QSettings settings;
+  QString defaultpath = settings.value("DefaultFile", tr("%1%2%3").arg(QDir::currentPath()).arg(QDir::separator()).arg("labels.csv")).toString();
   QString filename = QFileDialog::getOpenFileName(this, tr("Open File"),
                            defaultpath,
                            tr("Spreadsheet (*.csv *.txt)"));
   if (!QFileInfo(filename).exists())
     return;
 
-  this->Settings->setValue("DefaultFile", filename);
+  settings.setValue("DefaultFile", filename);
 
   QFile* mapfile = new QFile(filename);
 
@@ -247,7 +256,7 @@ void QMedBrowserWindow::LoadFilePressed(void)
   }
   mapfile->close();
 
-  for (unsigned long idx=0; idx<this->ListWidget->count(); idx++)
+  for (int idx=0; idx<this->ListWidget->count(); idx++)
   {
     QMedImageItem* meditem = reinterpret_cast<QMedImageItem*> (this->ListWidget->item(idx));
     if (!meditem)
@@ -269,15 +278,15 @@ void QMedBrowserWindow::SaveAsFilePressed(void)
 {
   if (!this->ListWidget->count())
     return;
-
-  QString defaultpath = this->Settings->value("DefaultFile", tr("%1%2%3").arg(QDir::currentPath()).arg(QDir::separator()).arg("labels.csv")).toString();
+  QSettings settings;
+  QString defaultpath = settings.value("DefaultFile", tr("%1%2%3").arg(QDir::currentPath()).arg(QDir::separator()).arg("labels.csv")).toString();
   QString filename = QFileDialog::getSaveFileName(this, tr("Save File"),
                            defaultpath,
                            tr("Spreadsheet (*.csv *.txt)"));
   if (!filename.count())
     return;
 
-  this->Settings->setValue("DefaultFile", filename);
+  settings.setValue("DefaultFile", filename);
 
   QFile* mapfile = new QFile(filename);
 
@@ -289,7 +298,7 @@ void QMedBrowserWindow::SaveAsFilePressed(void)
   QTextStream out(mapfile);
   out << "Filename;Labels\n";
 
-  for (unsigned long idx=0; idx<this->ListWidget->count(); idx++)
+  for (int idx=0; idx<this->ListWidget->count(); idx++)
   {
     QMedImageItem* meditem = reinterpret_cast<QMedImageItem*> (this->ListWidget->item(idx));
     if (!meditem)
@@ -315,7 +324,8 @@ void QMedBrowserWindow::OpenHelpPressed(void)
 
   this->LegendDialog = new QDialog(this);
   QLabel* label = new QLabel();
-  QIcon icon = QIcon(this->Settings->value("LegendFile", ":foetus").toString());
+  QSettings settings;
+  QIcon icon = QIcon(settings.value("LegendFile", ":foetus").toString());
   label->setPixmap(icon.pixmap(icon.availableSizes().at(0)));
   QLayout* layout = new QVBoxLayout();
   layout->setSpacing(5);
@@ -330,7 +340,7 @@ void QMedBrowserWindow::OpenPreferencesPressed(void)
 {
   if (!this->SettingsDialog)
   {
-    this->SettingsDialog = new QMedBrowserSettingsDialog(this->Settings, this);
+    this->SettingsDialog = new QMedBrowserSettingsDialog(this);
     QObject::connect(this->SettingsDialog, SIGNAL(accepted()), this, SLOT(ApplySettings()));
     this->SettingsDialog->resize(500,300);
   }
@@ -341,7 +351,8 @@ void QMedBrowserWindow::ApplySettings(void)
 {
   QStringList defaultlabels;
   defaultlabels << "Background" << "Head" << "Thorax" << "Abdomen" << "Spine" << "Limbs" << "Placenta";
-  QStringList labels = this->Settings->value("LabelValues", defaultlabels.join(",")).toString().split(",");
+  QSettings settings;
+  QStringList labels = settings.value("LabelValues", defaultlabels.join(",")).toString().split(",");
   this->ListWidget->setLabelValues(labels);
   this->LabelComboBox->clear();
   this->LabelComboBox->addItem("Filter label...");
@@ -349,7 +360,7 @@ void QMedBrowserWindow::ApplySettings(void)
   this->LabelComboBox->addItem("Un-labelled");
   this->LabelComboBox->setCurrentIndex(0);
 
-  int thumbnailsize_id = this->Settings->value("ThumbnailSize", 1).toInt();
+  int thumbnailsize_id = settings.value("ThumbnailSize", 1).toInt();
   QSize thumbnailsize(100,100);
   switch(thumbnailsize_id)
   {
@@ -378,7 +389,7 @@ void QMedBrowserWindow::SetItemFilter(const QString& regexp)
   bool showall = regexp.compare("Filter label...") == 0;
   unsigned long numberofimages = 0;
   QMedImageItem* meditem = nullptr;
-  for (unsigned long idx=0; idx<this->ListWidget->count(); idx++)
+  for (int idx=0; idx<this->ListWidget->count(); idx++)
   {
     meditem = reinterpret_cast<QMedImageItem*> (this->ListWidget->item(idx));
     if (!meditem)
@@ -402,7 +413,8 @@ void QMedBrowserWindow::SetThumbnailSize(int sizeid)
 {
   if (sizeid <= 0)
     return;
-  this->Settings->setValue("ThumbnailSize", sizeid);
+  QSettings settings;
+  settings.setValue("ThumbnailSize", sizeid);
   QSize thumbnailsize(100,100);
   switch(sizeid)
   {

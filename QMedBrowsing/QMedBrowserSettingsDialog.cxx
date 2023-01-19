@@ -3,17 +3,17 @@
 #include <QtWidgets>
 #include <QSettings>
 
-QMedBrowserSettingsDialog::QMedBrowserSettingsDialog(QSettings* settings, QWidget *parent)
+QMedBrowserSettingsDialog::QMedBrowserSettingsDialog(QWidget *parent)
     : QDialog(parent)
 {
   QString appName = QCoreApplication::applicationName() + " Preferences";
   this->setWindowTitle(appName);  
-  this->Settings = settings;
   this->SetupLayout();
 }
 
 void QMedBrowserSettingsDialog::SetupLayout(void)
 {
+  QSettings settings;
   QDialogButtonBox* buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
   QObject::connect(buttons, &QDialogButtonBox::accepted, this, &QMedBrowserSettingsDialog::accept);
   QObject::connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -24,7 +24,7 @@ void QMedBrowserSettingsDialog::SetupLayout(void)
   defaultfilters << "*.mha" << "*.mhd" << "*.nii" << "*.nii.gz";
   this->FileFiltersEdit = new QLineEdit();
   this->FileFiltersEdit->setPlaceholderText("Comma-separated filters");
-  this->FileFiltersEdit->setText(this->Settings->value("FileFilters", defaultfilters.join(",")).toString());
+  this->FileFiltersEdit->setText(settings.value("FileFilters", defaultfilters.join(",")).toString());
 
   QVBoxLayout *mainLayout = new QVBoxLayout;
   mainLayout->setSpacing(5);
@@ -42,8 +42,8 @@ void QMedBrowserSettingsDialog::SetupLayout(void)
 
   QStringList defaultlabels;
   defaultlabels << "Background" << "Head" << "Thorax" << "Abdomen" << "Spine" << "Limbs" << "Placenta";
-  QStringList labels = this->Settings->value("LabelValues", defaultlabels.join(",")).toString().split(",");
-  for (unsigned int i=0; i<defaultlabels.count(); i++)
+  QStringList labels = settings.value("LabelValues", defaultlabels.join(",")).toString().split(",");
+  for (int i=0; i<defaultlabels.count(); i++)
   {
     QLabel* labellabel = new QLabel(tr("Label #%1").arg(i));
     QLabel* icon = new QLabel();
@@ -73,7 +73,7 @@ void QMedBrowserSettingsDialog::SetupLayout(void)
   mainLayout->addWidget(legendfilelabel);
 
   this->LegendFileLabel = new QLabel();
-  this->LegendFileLabel->setText(this->Settings->value("LegendFile", ":foetus.png").toString());
+  this->LegendFileLabel->setText(settings.value("LegendFile", ":foetus.png").toString());
   QPushButton *filebutton = new QPushButton();
   filebutton->setToolTip(tr("Change legend image file"));
   filebutton->setIcon(QApplication::style()->standardIcon(QStyle::SP_DialogOpenButton));
@@ -118,18 +118,17 @@ void QMedBrowserSettingsDialog::accept()
                                                                QMessageBox::Ok | QMessageBox::Cancel);
   if (ret != QMessageBox::Ok)
     return;
-
-  this->Settings->setValue("FileFilters", this->FileFiltersEdit->text());
+  QSettings settings;
+  settings.setValue("FileFilters", this->FileFiltersEdit->text());
 
   QStringList labels;
   foreach(QLineEdit* edit, this->LabelValueEditList)
   {
-    if (edit->text().count())
-      labels.append(edit->text());
+    labels.append(edit->text());
   }
-  this->Settings->setValue("LabelValues", labels.join(","));
+  settings.setValue("LabelValues", labels.join(","));
 
-  this->Settings->setValue("LegendFile", this->LegendFileLabel->text());
+  settings.setValue("LegendFile", this->LegendFileLabel->text());
   
   QDialog::accept();
 }

@@ -3,6 +3,7 @@
 
 #include <QListWidgetItem>
 #include <QPixmap>
+#include <QImage>
 
 
 /**
@@ -22,6 +23,8 @@ public:
   QMedImageItem(const QString &path, const QString &text, QListWidget * parent = 0, const QSize& size = QSize(100, 100), int type = QListWidgetItem::Type);
   ~QMedImageItem();
 
+  const QImage& image(void) const 
+  { return this->Image; }
   QString path(void) const
   { return this->Path; }
 
@@ -37,12 +40,14 @@ public:
   void write(void);
   void addOverlays(QList<QPixmap> overlays);
 
+
 protected:
 
   void loadImage(const QString& path);
+  QImage readImage(const QString& path);
 
 private:
-
+  QImage Image;
   QString Path;
   QSize   Size;
   QPixmap Pixmap;

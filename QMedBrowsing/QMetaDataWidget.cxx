@@ -4,11 +4,13 @@
 #include <QStandardItemModel>
 #include <QSortFilterProxyModel>
 
+#ifdef use_itk
 #include <itkMetaDataDictionary.h>
 #include <itkMetaDataObject.h>
 #include <itkImageFileReader.h>
 #include <itkMetaImageIO.h>
 #include <itkImage.h>
+#endif
 
 QMetaDataWidget::QMetaDataWidget(const QString& path, QWidget *parent) : QWidget(parent, Qt::WindowStaysOnTopHint)
 {
@@ -44,6 +46,8 @@ void QMetaDataWidget::SetupLayout(void)
 
 void QMetaDataWidget::SetupTable()
 { 
+
+#ifdef use_itk
   itk::MetaImageIO::Pointer io = itk::MetaImageIO::New();
   io->SetFileName(this->Path.toStdString().c_str());
 
@@ -76,6 +80,7 @@ void QMetaDataWidget::SetupTable()
   }
   this->Table->resizeColumnToContents(0);
   this->Table->setColumnWidth(1, 300);
+#endif
   this->update();
 }
 

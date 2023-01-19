@@ -33,7 +33,10 @@ QMedImageListWidget::QMedImageListWidget(const QSize& size, QWidget *parent) :
   this->setContextMenuPolicy(Qt::CustomContextMenu);
   QObject::connect(this, SIGNAL(customContextMenuRequested(const QPoint&)),
                    this, SLOT(ShowContextMenu(const QPoint&)));
-                  
+  QObject::connect(this, SIGNAL(currentItemChanged(QListWidgetItem*, QListWidgetItem*)),
+      this, SLOT(HandleItemChanged(QListWidgetItem*, QListWidgetItem*)));
+
+
   for (unsigned int idx = 0; idx < 7; idx++)
   {
     this->LabelValues << QObject::tr("Label%1").arg(idx);
@@ -53,6 +56,9 @@ QMedImageListWidget::QMedImageListWidget(const QSize& size, QWidget *parent) :
   m_smallStepRatio = 1.0 / 5.0;
   m_bigStepModifier = Qt::ALT;
   m_bigStepRatio = 5.0;
+
+  this->FullResolutionDialog = nullptr;
+
 }
 
 
@@ -205,9 +211,11 @@ void QMedImageListWidget::keyPressEvent(QKeyEvent * event)
 
 void QMedImageListWidget::ToggleLabelValue(unsigned int idx)
 {
-  if (this->LabelValues.count() < idx)
+  if (this->LabelValues.count() <= idx)
     return;
   QString totoggle = this->LabelValues.at(idx);
+  if (totoggle.isEmpty())
+      return;
   foreach(QListWidgetItem* item, this->selectedItems())
   {
     QMedImageItem* meditem = reinterpret_cast<QMedImageItem*> (item);
@@ -264,7 +272,7 @@ void QMedImageListWidget::wheelEvent(QWheelEvent *e)
         multiplier *= m_smallStepRatio;
     if (QApplication::keyboardModifiers() & m_bigStepModifier)
         multiplier *= m_bigStepRatio;
-    double delta = e->delta() * multiplier;
+    double delta = e->angleDelta().y() * multiplier;
     if (m_acceleration > 0)
         delta += delta * m_acceleration * accerationRatio;
 
@@ -317,4 +325,40 @@ double QMedImageListWidget::subDelta(double delta, int stepsLeft)
 
     // some mathmatical integral result.
     return (cos(x * M_PI / m) + 1.0) / (2.0*m) * delta;
+}
+
+
+void QMedImageListWidget::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    QList<QListWidgetItem*> items = selectedItems();;
+    if (items.isEmpty())
+        return;
+
+    QMedImageItem* item = dynamic_cast<QMedImageItem*>(items.first());
+    if (!this->FullResolutionDialog)
+    {
+        this->FullResolutionDialog = new QDialog(this);
+        this->FullResolutionDialog->setModal(false);
+        this->FullResolutionLabel = new QLabel(this->FullResolutionDialog);
+        QVBoxLayout* l = new QVBoxLayout();
+        l->addWidget(this->FullResolutionLabel);
+        this->FullResolutionDialog->setLayout(l);
+    }
+    QPixmap pixmap;
+    pixmap.convertFromImage(item->image());
+    this->FullResolutionLabel->setPixmap(pixmap);
+    this->FullResolutionDialog->show();
+}
+
+void QMedImageListWidget::HandleItemChanged(QListWidgetItem* current, QListWidgetItem* previous)
+{
+    if (!this->FullResolutionDialog)
+        return;
+
+    QMedImageItem* item = dynamic_cast<QMedImageItem*>(current);
+
+    QPixmap pixmap;
+    pixmap.convertFromImage(item->image());
+    this->FullResolutionLabel->setPixmap(pixmap);
+    this->FullResolutionDialog->show();
 }

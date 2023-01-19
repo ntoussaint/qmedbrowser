@@ -22,7 +22,7 @@ class QMedBrowserSettingsDialog : public QDialog
   Q_OBJECT
 
 public:
-  explicit QMedBrowserSettingsDialog(QSettings* settings, QWidget *parent = 0);
+  explicit QMedBrowserSettingsDialog(QWidget *parent = 0);
 
 public slots:
   void accept();
@@ -36,7 +36,6 @@ private:
   QLineEdit* FileFiltersEdit;
   QLabel* LegendFileLabel;
   QList<QLineEdit*> LabelValueEditList;
-  QSettings* Settings;
 };
 
 

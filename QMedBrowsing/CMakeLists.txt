@@ -5,11 +5,13 @@ add_library(QMedBrowsing
   QMedImageListWidget.cxx
   QMedBrowserWindow.cxx
   QMedBrowserSettingsDialog.cxx
+  QMedImageReaderThread.cxx
   )
 
 target_link_libraries(QMedBrowsing
   Qt5::Core
   Qt5::Widgets
+  Qt5::Concurrent
   ${ITK_LIBRARIES}
   )
 

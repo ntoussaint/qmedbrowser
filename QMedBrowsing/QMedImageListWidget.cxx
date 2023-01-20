@@ -36,12 +36,13 @@ QMedImageListWidget::QMedImageListWidget(const QSize& size, QWidget *parent) :
   QObject::connect(this, SIGNAL(currentItemChanged(QListWidgetItem*, QListWidgetItem*)),
       this, SLOT(HandleItemChanged(QListWidgetItem*, QListWidgetItem*)));
 
-
   for (unsigned int idx = 0; idx < 7; idx++)
   {
     this->LabelValues << QObject::tr("Label%1").arg(idx);
     this->Tags << QIcon(QObject::tr(":/label%1.png").arg(idx)).pixmap(45,45);
   }
+
+  this->setToolTipDuration(3000);
 
   /// smooth scrolling...
   lastWheelEvent = 0;
@@ -76,6 +77,11 @@ void QMedImageListWidget::ShowContextMenu(const QPoint& pos)
 void QMedImageListWidget::UpdateMenu(void)
 {
   this->ContextMenu->clear();
+
+  QAction* copy = new QAction(tr(" &Copy Path"), this);
+  copy->setIcon(QIcon::fromTheme("edit-copy"));
+  QObject::connect(copy, SIGNAL(triggered()), this, SLOT(CopySelected()));
+  this->ContextMenu->addAction(copy);
 
   QAction* remove = new QAction(tr(" &Delete"), this);
   remove->setIcon(QIcon::fromTheme("edit-clear"));
@@ -355,6 +361,9 @@ void QMedImageListWidget::mouseDoubleClickEvent(QMouseEvent* event)
 void QMedImageListWidget::HandleItemChanged(QListWidgetItem* current, QListWidgetItem* previous)
 {
     if (!this->FullResolutionDialog)
+        return;
+
+    if (!this->FullResolutionDialog->isVisible())
         return;
 
     QMedImageItem* item = dynamic_cast<QMedImageItem*>(current);

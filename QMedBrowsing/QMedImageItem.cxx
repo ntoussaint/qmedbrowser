@@ -14,9 +14,11 @@
 QMedImageItem::QMedImageItem(const QString &path, const QString &text, QListWidget * parent, const QSize& size, int type) :
   QListWidgetItem(parent, type)
 {
-  this->setText(text);
+  this->setData(Qt::UserRole, this->Path);
   this->Size = size;
   this->Path = path;
+  QString tooltip = path.length() <= 25 ? path : QString("...%1").arg(path.right(25));
+  this->setToolTip(tooltip);
 
   this->LabelKey = QObject::tr("Labels");
 
@@ -30,12 +32,25 @@ QMedImageItem::~QMedImageItem()
   ///@todo figure out why we have a leak here...
 }
 
-QImage QMedImageItem::readImage(const QString& path)
+bool QMedImageItem::operator < (const QListWidgetItem& other) const
+{
+    QString other_path = other.data(Qt::UserRole).toString();
+    return this->Path < other_path;
+}
+
+QImage QMedImageItem::readImage(const QString& path, unsigned int max_width)
 {
   QImageReader reader(path);
   reader.setAutoTransform(true);
+  reader.setBackgroundColor(QColor(0, 0, 0, 0));
   if (reader.canRead())
   {
+      QSize size = reader.size();
+      if (size.width() > (int)max_width)
+      {
+          size.scale(max_width, max_width, Qt::AspectRatioMode::KeepAspectRatioByExpanding);
+          reader.setScaledSize(size);
+      }
       QImage ret;
       reader.read(&ret);
       

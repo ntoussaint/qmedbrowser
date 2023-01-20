@@ -29,7 +29,7 @@ file(WRITE ${PROJECT_BINARY_DIR}/VERSION "${PROJECT_VERSION}")
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-find_package(Qt5 REQUIRED Core Gui Widgets)
+find_package(Qt5 REQUIRED Core Concurrent Gui Widgets)
 
 
 option(USE_ITK "Use ITK to have be able to read medical images" OFF)

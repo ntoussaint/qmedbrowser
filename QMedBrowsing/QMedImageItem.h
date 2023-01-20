@@ -27,7 +27,6 @@ public:
   { return this->Image; }
   QString path(void) const
   { return this->Path; }
-
   void setLabelKey(QString arg)
   { this->LabelKey = arg; }
   QString labelKey(void) const
@@ -40,11 +39,12 @@ public:
   void write(void);
   void addOverlays(QList<QPixmap> overlays);
 
+  bool operator < (const QListWidgetItem& other) const override;
 
 protected:
 
   void loadImage(const QString& path);
-  QImage readImage(const QString& path);
+  QImage readImage(const QString& path, unsigned int max_width=800);
 
 private:
   QImage Image;

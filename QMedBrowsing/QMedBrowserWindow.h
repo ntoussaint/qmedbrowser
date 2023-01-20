@@ -10,6 +10,8 @@
 #include "QMedImageListWidget.h"
 #include "QMedBrowserSettingsDialog.h"
 
+class QMedImageItem;
+
 /**
  * @class QMedBrowserWindow
  * @author Nicolas Toussaint
@@ -34,6 +36,8 @@ public:
   QMedBrowserWindow(QWidget *parent = 0);
   ~QMedBrowserWindow() {}  
 
+  void emitImageRead(void) const;
+
 public slots:
 
 
@@ -50,6 +54,11 @@ public slots:
 
   void SetThumbnailSize(int sizeid);
 
+  void handleItem(QMedImageItem* item);
+
+signals:
+  void imageRead(int list_count) const;
+
 protected:
 
   /**
@@ -62,6 +71,11 @@ protected:
    * @param event
    */
   void closeEvent(QCloseEvent * event);  
+
+  /**
+   * Reads an image and emits the signal: imageRead
+   */
+  QMedImageItem* readImage(const QString& filePath, QSize thumbnailsize) const;
 
 private:
 

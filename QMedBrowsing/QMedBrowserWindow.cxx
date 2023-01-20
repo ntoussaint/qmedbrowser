@@ -1,9 +1,14 @@
 #include "QMedBrowserWindow.h"
 #include "QMedImageItem.h"
+#include "QMedImageReaderThread.h"
 
 #include <QtWidgets>
+#include <QThread>
+#include <QtConcurrent/qtconcurrentmap.h>
+#include <QMetaType>
 
 #include <iostream>
+
 
 QStringList listFiles(const QString& directory, QStringList filters)
 {
@@ -24,6 +29,7 @@ QMedBrowserWindow::QMedBrowserWindow(QWidget *parent) : QMainWindow(parent)
     QSettings settings;
     this->restoreGeometry(settings.value("MainWindow/geometry", this->saveGeometry()).toByteArray());
     this->restoreState(settings.value("MainWindow/windowState", this->saveState()).toByteArray());
+    qRegisterMetaType<QVector<int>>("QVectorInt");
 
   this->LegendDialog = nullptr;
   this->SettingsDialog = nullptr;
@@ -35,7 +41,7 @@ QMedBrowserWindow::QMedBrowserWindow(QWidget *parent) : QMainWindow(parent)
 void QMedBrowserWindow::SetupLayout(void)
 {
   QPushButton *open = new QPushButton();
-  open->setToolTip("Open medical image folder");
+  open->setToolTip("Open image folder");
   open->setIcon(QApplication::style()->standardIcon(QStyle::SP_DirOpenIcon));
   open->setIconSize(QSize(32,32));
   QObject::connect(open, SIGNAL(released()), this, SLOT(OpenFolderPressed()));
@@ -71,6 +77,7 @@ void QMedBrowserWindow::SetupLayout(void)
   this->ProgressBar->setOrientation(Qt::Horizontal);
   this->ProgressBar->setRange(0, 100);
   this->ProgressBar->setVisible(false);
+  QObject::connect(this, SIGNAL(imageRead(int)), this->ProgressBar, SLOT(setValue(int)));
 
   this->LabelComboBox = new QComboBox();
   QObject::connect(this->LabelComboBox, SIGNAL(currentTextChanged(const QString&)), this, SLOT(SetItemFilter(const QString&)));
@@ -130,6 +137,12 @@ void QMedBrowserWindow::closeEvent(QCloseEvent *event)
   }
 }
 
+void QMedBrowserWindow::handleItem(QMedImageItem* item)
+{
+    this->ListWidget->addItem(item);
+    this->ProgressBar->setValue(this->ProgressBar->value() + 1);
+}
+
 void QMedBrowserWindow::OpenFolderPressed(void)
 {
   QSettings settings;
@@ -169,24 +182,40 @@ void QMedBrowserWindow::OpenFolderPressed(void)
   this->ProgressBar->setRange(0, files_new.count());
   this->HelpLabel->setVisible(false);
   this->ProgressBar->setVisible(true);
-
+  this->ProgressBar->setValue(0);
   QSize thumbnailsize(300,300);
-  
-  for (int idx = 0; idx < files_new.count(); idx++)
+
+  //std::function<QMedImageItem*(const QString&)> read = [this, thumbnailsize](const QString& filepath) -> QMedImageItem*
+  //{
+  //    QMedImageItem* item = new QMedImageItem(filepath, "-", nullptr, thumbnailsize);
+  //    /// this->emitImageRead();
+  //    return item;
+  //};
+
+  //// Use QtConcurrentBlocking::mapped to apply the scale function to all the
+  //// images in the list.
+  //QList<QMedImageItem*> new_items = QtConcurrent::blockingMapped(files_new, read);
+
+  //for (QMedImageItem* meditem : new_items)
+  //{
+  //      meditem->setText(QString::number(this->ListWidget->count()));
+  //      QStringList values = meditem->labelValues();
+  //      meditem->addOverlays(this->ListWidget->LabelsToPixmaps(values));
+  //      this->ListWidget->addItem(meditem);
+  //}
+
+  unsigned int count = 0;
+  for (const QString& filepath : files_new)
   {
-    QString f = files_new.at(idx);
-    QMedImageItem* meditem = new QMedImageItem(f, tr("%1").arg(this->ListWidget->count()), this->ListWidget, thumbnailsize);
-    QStringList values = meditem->labelValues();
-    meditem->addOverlays(this->ListWidget->LabelsToPixmaps(values));
-    this->ListWidget->addItem(meditem);
-    this->ProgressBar->setValue(idx);
+      QMedImageReaderThread* thread = new QMedImageReaderThread(filepath, thumbnailsize);
+      QObject::connect(thread, &QMedImageReaderThread::itemReady, this, &QMedBrowserWindow::handleItem);
+      QObject::connect(thread, &QMedImageReaderThread::finished, thread, &QObject::deleteLater);
+      count+=5;
+      QTimer::singleShot(count, thread, SLOT(start()));
   }
 
-  this->ProgressBar->setVisible(false);
-  this->HelpLabel->setVisible(true);
   this->statusBar()->showMessage(tr("Total: %1 images").arg(files_new.count()));
   this->SetThumbnailSize(3);
-
   this->LabelComboBox->setCurrentIndex(0);
   this->ThumbnailSizeComboBox->setCurrentIndex(0);
 }
